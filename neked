@@ -81,14 +81,6 @@ local speedSlider = MainSection:Slider({
     end
 })
 
-local infJumpEnabled = false
-local infJumpToggle = MainSection:Toggle({
-    Title = "Inf Jump",
-    Callback = function(state)
-        infJumpEnabled = state
-    end
-})
-
 MainSection:Button({
     Title = "Inf Yield",
     Callback = function()
@@ -106,22 +98,76 @@ game:GetService("RunService").Heartbeat:Connect(function()
     end
 end)
 
-local connection
-infJumpToggle:Connect(function(state)
-    if connection then
-        connection:Disconnect()
-        connection = nil
+local EarthBuyTab = Window:Tab({
+    Title = "EarthBuy",
+    Icon = "shopping-cart"
+})
+
+local EarthBuySection = EarthBuyTab:Section({
+    Title = "Purchase Items",
+    Opened = true
+})
+
+local itemList = {
+    "Demolish",
+    "FriendGate", 
+    "Future",
+    "MarsColony",
+    "MoonGun",
+    "MoonPumper",
+    "MoonSaber",
+    "Nuke",
+    "PluckRadar",
+    "PumpJack",
+    "RailGun",
+    "UmbraZone",
+    "VenusColony",
+    "HexSpitter"
+}
+
+local typeList = {
+    "Tool",
+    "Building"
+}
+
+local selectedItem = "Demolish"
+local selectedType = "Tool"
+local costValue = ""
+
+local itemDropdown = EarthBuySection:Dropdown({
+    Title = "Select Item",
+    Values = itemList,
+    Value = "Demolish",
+    Callback = function(value)
+        selectedItem = value
     end
-    
-    if state then
-        connection = game:GetService("UserInputService").JumpRequest:Connect(function()
-            local player = game:GetService("Players").LocalPlayer
-            if player.Character then
-                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                end
-            end
-        end)
+})
+
+local typeDropdown = EarthBuySection:Dropdown({
+    Title = "Select Type",
+    Values = typeList,
+    Value = "Tool",
+    Callback = function(value)
+        selectedType = value
     end
-end)
+})
+
+local costInput = EarthBuySection:Input({
+    Title = "Cost",
+    Placeholder = "Назовите цену",
+    Callback = function(value)
+        costValue = value
+    end
+})
+
+EarthBuySection:Button({
+    Title = "Confirm",
+    Callback = function()
+        local costNumber = tonumber(costValue) or 0
+        game:GetService("ReplicatedStorage").Events.Buy:FireServer(table.unpack({
+            [1] = selectedItem,
+            [2] = selectedType,
+            [3] = costNumber
+        }))
+    end
+})
