@@ -1,11 +1,212 @@
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
+WindUI:SetTheme("Violet")
+
 local Window = WindUI:CreateWindow({
     Title = "approaching moon",
     Author = "by Neked",
     Folder = "ApproachingMoon",
     Size = UDim2.fromOffset(450, 500),
+    HideSearchBar = false,
+    User = {
+        Enabled = true,
+        Anonymous = false,
+        Callback = function()
+        end
+    }
 })
+
+Window:Tag({
+    Title = os.date("%H:%M"),
+    Color = Color3.fromHex("#315dff")
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+
+local localPlayer = Players.LocalPlayer
+
+local instantPPEnabled = false
+local savedHoldDurations = {}
+local instantPPConnections = {}
+
+local function protectSetHold(prompt, val)
+    if not prompt or not prompt.Parent or not prompt:IsA("ProximityPrompt") then return end
+    pcall(function()
+        if savedHoldDurations[prompt] == nil then
+            savedHoldDurations[prompt] = prompt.HoldDuration
+        end
+        prompt.HoldDuration = val
+    end)
+end
+
+local function restoreAllHolds()
+    for prompt, original in pairs(savedHoldDurations) do
+        if prompt and prompt.Parent and prompt:IsA("ProximityPrompt") then
+            pcall(function() prompt.HoldDuration = original end)
+        end
+    end
+    savedHoldDurations = {}
+end
+
+local function enableInstantPP()
+    if instantPPEnabled then return end
+    instantPPEnabled = true
+
+    for _, desc in ipairs(Workspace:GetDescendants()) do
+        if desc:IsA("ProximityPrompt") then
+            protectSetHold(desc, 0)
+        end
+    end
+
+    instantPPConnections.workspaceConn = Workspace.DescendantAdded:Connect(function(desc)
+        if desc:IsA("ProximityPrompt") then
+            protectSetHold(desc, 0)
+        end
+    end)
+
+    instantPPConnections.playerCharConn = Players.PlayerAdded:Connect(function(plr)
+        plr.CharacterAdded:Connect(function(char)
+            for _, d in ipairs(char:GetDescendants()) do
+                if d:IsA("ProximityPrompt") then
+                    protectSetHold(d, 0)
+                end
+            end
+            char.DescendantAdded:Connect(function(d)
+                if d:IsA("ProximityPrompt") then
+                    protectSetHold(d, 0)
+                end
+            end)
+        end)
+    end)
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character then
+            for _, d in ipairs(plr.Character:GetDescendants()) do
+                if d:IsA("ProximityPrompt") then
+                    protectSetHold(d, 0)
+                end
+            end
+            instantPPConnections["charDesc_"..plr.Name] = plr.Character.DescendantAdded:Connect(function(d)
+                if d:IsA("ProximityPrompt") then
+                    protectSetHold(d, 0)
+                end
+            end)
+        end
+    end
+end
+
+local function disableInstantPP()
+    if not instantPPEnabled then return end
+    instantPPEnabled = false
+    for k, conn in pairs(instantPPConnections) do
+        if typeof(conn) == "RBXScriptConnection" then
+            pcall(function() conn:Disconnect() end)
+        end
+        instantPPConnections[k] = nil
+    end
+    restoreAllHolds()
+end
+
+local infJumpEnabled = false
+local infJumpConnection = nil
+
+local function onJumpRequest()
+    local char = localPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end)
+    end
+end
+
+local function enableInfJump()
+    if infJumpEnabled then return end
+    infJumpEnabled = true
+    infJumpConnection = UserInputService.JumpRequest:Connect(function()
+        onJumpRequest()
+    end)
+end
+
+local function disableInfJump()
+    if not infJumpEnabled then return end
+    infJumpEnabled = false
+    if infJumpConnection then
+        pcall(function() infJumpConnection:Disconnect() end)
+        infJumpConnection = nil
+    end
+end
+
+local noclipEnabled = false
+local savedCanCollide = {}
+local noclipConnections = {}
+
+local function setCharacterNoClip(character, state)
+    if not character then return end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if state then
+                if savedCanCollide[part] == nil then
+                    savedCanCollide[part] = part.CanCollide
+                end
+                pcall(function() part.CanCollide = false end)
+            else
+                if savedCanCollide[part] ~= nil then
+                    local original = savedCanCollide[part]
+                    pcall(function() part.CanCollide = original end)
+                    savedCanCollide[part] = nil
+                end
+            end
+        end
+    end
+end
+
+local function enableNoClip()
+    if noclipEnabled then return end
+    noclipEnabled = true
+
+    if localPlayer.Character then
+        setCharacterNoClip(localPlayer.Character, true)
+        noclipConnections.charDescConn = localPlayer.Character.DescendantAdded:Connect(function(desc)
+            if desc:IsA("BasePart") then
+                pcall(function() desc.CanCollide = false end)
+            end
+        end)
+    end
+
+    noclipConnections.charAddedConn = localPlayer.CharacterAdded:Connect(function(char)
+        setCharacterNoClip(char, true)
+        noclipConnections.charDescConn = char.DescendantAdded:Connect(function(desc)
+            if desc:IsA("BasePart") then
+                pcall(function() desc.CanCollide = false end)
+            end
+        end)
+    end)
+end
+
+local function disableNoClip()
+    if not noclipEnabled then return end
+    noclipEnabled = false
+
+    for k, conn in pairs(noclipConnections) do
+        if typeof(conn) == "RBXScriptConnection" then
+            pcall(function() conn:Disconnect() end)
+        end
+        noclipConnections[k] = nil
+    end
+
+    for part, original in pairs(savedCanCollide) do
+        if part and part.Parent then
+            pcall(function() part.CanCollide = original end)
+        end
+        savedCanCollide[part] = nil
+    end
+end
+
+local speedValue = 16
+local jumpPowerValue = 50
 
 local MainTab = Window:Tab({
     Title = "Main",
@@ -15,6 +216,66 @@ local MainTab = Window:Tab({
 local MainSection = MainTab:Section({
     Title = "Functions",
     Opened = true
+})
+
+MainSection:Toggle({
+    Title = "Instant PP",
+    Value = false,
+    Callback = function(state)
+        if state then
+            enableInstantPP()
+        else
+            disableInstantPP()
+        end
+    end
+})
+
+MainSection:Toggle({
+    Title = "Inf Jump",
+    Value = false,
+    Callback = function(state)
+        if state then
+            enableInfJump()
+        else
+            disableInfJump()
+        end
+    end
+})
+
+MainSection:Toggle({
+    Title = "NoClip",
+    Value = false,
+    Callback = function(state)
+        if state then
+            enableNoClip()
+        else
+            disableNoClip()
+        end
+    end
+})
+
+MainSection:Slider({
+    Title = "JumpPower",
+    Value = {
+        Min = 1,
+        Max = 500,
+        Default = 50
+    },
+    Callback = function(value)
+        jumpPowerValue = value
+    end
+})
+
+MainSection:Slider({
+    Title = "Walk Speed",
+    Value = {
+        Min = 1,
+        Max = 200,
+        Default = 16
+    },
+    Callback = function(value)
+        speedValue = value
+    end
 })
 
 MainSection:Button({
@@ -59,7 +320,14 @@ MainSection:Button({
     end
 })
 
-local messageInput = MainSection:Input({
+MainSection:Button({
+    Title = "Inf Yield",
+    Callback = function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+    end
+})
+
+MainSection:Input({
     Title = "Global Message",
     Placeholder = "Введите глобальное сообщение",
     Callback = function(text)
@@ -68,32 +336,22 @@ local messageInput = MainSection:Input({
     end
 })
 
-local speedValue = 16
-local speedSlider = MainSection:Slider({
-    Title = "Walk Speed",
-    Value = {
-        Min = 1,
-        Max = 200,
-        Default = 16
-    },
-    Callback = function(value)
-        speedValue = value
-    end
-})
-
-MainSection:Button({
-    Title = "Inf Yield",
-    Callback = function()
-        loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
-    end
-})
-
-game:GetService("RunService").Heartbeat:Connect(function()
-    local player = game:GetService("Players").LocalPlayer
-    if player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+RunService.Heartbeat:Connect(function()
+    local player = Players.LocalPlayer
+    if not player then return end
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            humanoid.WalkSpeed = speedValue
+            pcall(function() humanoid.WalkSpeed = speedValue end)
+            pcall(function() humanoid.JumpPower = jumpPowerValue end)
+        end
+        if noclipEnabled then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    pcall(function() part.CanCollide = false end)
+                end
+            end
         end
     end
 end)
@@ -108,7 +366,7 @@ local EarthBuySection = EarthBuyTab:Section({
     Opened = true
 })
 
-local itemList = {
+local earthItems = {
     "Demolish",
     "FriendGate", 
     "Future",
@@ -130,44 +388,208 @@ local typeList = {
     "Building"
 }
 
-local selectedItem = "Demolish"
-local selectedType = "Tool"
-local costValue = ""
+local selectedEarthItem = "Demolish"
+local selectedEarthType = "Tool"
+local earthCostValue = ""
 
-local itemDropdown = EarthBuySection:Dropdown({
+EarthBuySection:Dropdown({
     Title = "Select Item",
-    Values = itemList,
+    Values = earthItems,
     Value = "Demolish",
     Callback = function(value)
-        selectedItem = value
+        selectedEarthItem = value
     end
 })
 
-local typeDropdown = EarthBuySection:Dropdown({
+EarthBuySection:Dropdown({
     Title = "Select Type",
     Values = typeList,
     Value = "Tool",
     Callback = function(value)
-        selectedType = value
+        selectedEarthType = value
     end
 })
 
-local costInput = EarthBuySection:Input({
+EarthBuySection:Input({
     Title = "Cost",
     Placeholder = "Назовите цену",
     Callback = function(value)
-        costValue = value
+        earthCostValue = value
     end
 })
 
 EarthBuySection:Button({
     Title = "Confirm",
     Callback = function()
-        local costNumber = tonumber(costValue) or 0
+        local costNumber = tonumber(earthCostValue) or 0
         game:GetService("ReplicatedStorage").Events.Buy:FireServer(table.unpack({
-            [1] = selectedItem,
-            [2] = selectedType,
+            [1] = selectedEarthItem,
+            [2] = selectedEarthType,
             [3] = costNumber
         }))
+    end
+})
+
+local MarsBuyTab = Window:Tab({
+    Title = "MarsBuy",
+    Icon = "shopping-cart"
+})
+
+local MarsBuySection = MarsBuyTab:Section({
+    Title = "Purchase Items",
+    Opened = true
+})
+
+local marsItems = {
+    "MainColony",
+    "MarsDomes",
+    "MoonGun",
+    "MoonSaber",
+    "RailGun",
+    "Terraform"
+}
+
+local selectedMarsItem = "MainColony"
+local selectedMarsType = "Tool"
+local marsCostValue = ""
+
+MarsBuySection:Dropdown({
+    Title = "Select Item",
+    Values = marsItems,
+    Value = "MainColony",
+    Callback = function(value)
+        selectedMarsItem = value
+    end
+})
+
+MarsBuySection:Dropdown({
+    Title = "Select Type",
+    Values = typeList,
+    Value = "Tool",
+    Callback = function(value)
+        selectedMarsType = value
+    end
+})
+
+MarsBuySection:Input({
+    Title = "Cost",
+    Placeholder = "Назовите цену",
+    Callback = function(value)
+        marsCostValue = value
+    end
+})
+
+MarsBuySection:Button({
+    Title = "Confirm",
+    Callback = function()
+        local costNumber = tonumber(marsCostValue) or 0
+        game:GetService("ReplicatedStorage").Events.Buy:FireServer(table.unpack({
+            [1] = selectedMarsItem,
+            [2] = selectedMarsType,
+            [3] = costNumber,
+            [4] = "Mars"
+        }))
+    end
+})
+
+local VenusBuyTab = Window:Tab({
+    Title = "VenusBuy",
+    Icon = "shopping-cart"
+})
+
+local VenusBuySection = VenusBuyTab:Section({
+    Title = "Purchase Items",
+    Opened = true
+})
+
+local venusItems = {
+    "lorizedMoonJuicePumpJack",
+    "MoonGun",
+    "MoonSaber",
+    "RailGun",
+    "Terraform",
+    "VenusSkyBases"
+}
+
+local selectedVenusItem = "lorizedMoonJuicePumpJack"
+local selectedVenusType = "Tool"
+local venusCostValue = ""
+
+VenusBuySection:Dropdown({
+    Title = "Select Item",
+    Values = venusItems,
+    Value = "lorizedMoonJuicePumpJack",
+    Callback = function(value)
+        selectedVenusItem = value
+    end
+})
+
+VenusBuySection:Dropdown({
+    Title = "Select Type",
+    Values = typeList,
+    Value = "Tool",
+    Callback = function(value)
+        selectedVenusType = value
+    end
+})
+
+VenusBuySection:Input({
+    Title = "Cost",
+    Placeholder = "Назовите цену",
+    Callback = function(value)
+        venusCostValue = value
+    end
+})
+
+VenusBuySection:Button({
+    Title = "Confirm",
+    Callback = function()
+        local costNumber = tonumber(venusCostValue) or 0
+        game:GetService("ReplicatedStorage").Events.Buy:FireServer(table.unpack({
+            [1] = selectedVenusItem,
+            [2] = selectedVenusType,
+            [3] = costNumber,
+            [4] = "Venus"
+        }))
+    end
+})
+
+local TeleportTab = Window:Tab({
+    Title = "Teleport",
+    Icon = "map-pin"
+})
+
+local TeleportSection = TeleportTab:Section({
+    Title = "Locations",
+    Opened = true
+})
+
+TeleportSection:Button({
+    Title = "Goto Earth",
+    Callback = function()
+        local player = Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+        humanoidRootPart.CFrame = CFrame.new(711.95, 3033.62, -1380.92)
+    end
+})
+
+TeleportSection:Button({
+    Title = "Goto Venus",
+    Callback = function()
+        local player = Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+        humanoidRootPart.CFrame = CFrame.new(815.46, 2814.04, 9677.54)
+    end
+})
+
+TeleportSection:Button({
+    Title = "Goto Mars",
+    Callback = function()
+        local player = Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+        humanoidRootPart.CFrame = CFrame.new(745.67, 4134.35, -17186.59)
     end
 })
