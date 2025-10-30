@@ -1,0 +1,127 @@
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "approaching moon",
+    Author = "by Neked",
+    Folder = "ApproachingMoon",
+    Size = UDim2.fromOffset(450, 500),
+})
+
+local MainTab = Window:Tab({
+    Title = "Main",
+    Icon = "settings"
+})
+
+local MainSection = MainTab:Section({
+    Title = "Functions",
+    Opened = true
+})
+
+MainSection:Button({
+    Title = "Inf Moon Juice(Earth)",
+    Callback = function()
+        game:GetService("ReplicatedStorage").Events.Buy:FireServer(table.unpack({
+            [1] = "FriendGate",
+            [2] = "Building",
+            [3] = -1e+1000,
+        }))
+    end
+})
+
+MainSection:Button({
+    Title = "Inf Moon Juice(Mars)",
+    Callback = function()
+        game:GetService("ReplicatedStorage").Events.Buy:FireServer(table.unpack({
+            [1] = "HexSpitter",
+            [2] = "Tool",
+            [3] = -1e+1000,
+            [4] = "Mars",
+        }))
+    end
+})
+
+MainSection:Button({
+    Title = "Inf Moon Juice(Venus)",
+    Callback = function()
+        game:GetService("ReplicatedStorage").Events.Buy:FireServer(table.unpack({
+            [1] = "VenusSkyBases",
+            [2] = "Building",
+            [3] = -1e+1000,
+            [4] = "Venus",
+        }))
+    end
+})
+
+MainSection:Button({
+    Title = "Infect You",
+    Callback = function()
+        game:GetService("ReplicatedStorage").Events.Infected:FireServer(game:GetService("Players").LocalPlayer.PlayerGui.Infection.Frame.Frame.Moonfected)
+    end
+})
+
+local messageInput = MainSection:Input({
+    Title = "Global Message",
+    Placeholder = "Введите глобальное сообщение",
+    Callback = function(text)
+        local Remote = game:GetService("ReplicatedStorage").Events.Text
+        firesignal(Remote.OnClientEvent, text)
+    end
+})
+
+local speedValue = 16
+local speedSlider = MainSection:Slider({
+    Title = "Walk Speed",
+    Value = {
+        Min = 1,
+        Max = 200,
+        Default = 16
+    },
+    Callback = function(value)
+        speedValue = value
+    end
+})
+
+local infJumpEnabled = false
+local infJumpToggle = MainSection:Toggle({
+    Title = "Inf Jump",
+    Callback = function(state)
+        infJumpEnabled = state
+    end
+})
+
+MainSection:Button({
+    Title = "Inf Yield",
+    Callback = function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+    end
+})
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    local player = game:GetService("Players").LocalPlayer
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = speedValue
+        end
+    end
+end)
+
+local connection
+infJumpToggle:Connect(function(state)
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+    
+    if state then
+        connection = game:GetService("UserInputService").JumpRequest:Connect(function()
+            local player = game:GetService("Players").LocalPlayer
+            if player.Character then
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end
+        end)
+    end
+end)
