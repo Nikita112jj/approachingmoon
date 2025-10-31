@@ -1,25 +1,48 @@
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
-WindUI:SetTheme("Violet")
-
 local Window = WindUI:CreateWindow({
     Title = "approaching moon",
     Author = "by Neked",
     Folder = "ApproachingMoon",
     Size = UDim2.fromOffset(450, 500),
     HideSearchBar = false,
+    Theme = "Violet",
+    Icon = "gamepad",
     User = {
         Enabled = true,
         Anonymous = false,
         Callback = function()
+            local players = game:GetService("Players"):GetPlayers()
+            local playerList = ""
+            
+            for i, player in ipairs(players) do
+                playerList = playerList .. "• " .. player.Name .. "\n"
+            end
+            
+            WindUI:Notify({
+                Title = "👥 Players Online",
+                Content = "Total: " .. #players .. "/" .. game:GetService("Players").MaxPlayers .. "\n\n" .. playerList,
+                Duration = 10,
+                Icon = "users"
+            })
         end
     }
 })
 
-Window:Tag({
+local TimeTag = Window:Tag({
     Title = os.date("%H:%M"),
     Color = Color3.fromHex("#315dff")
 })
+
+task.spawn(function()
+    while true do
+        local now = os.date("*t")
+        local hours = string.format("%02d", now.hour)
+        local minutes = string.format("%02d", now.min)
+        TimeTag:SetTitle(hours .. ":" .. minutes)
+        task.wait(1)
+    end
+end)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -343,8 +366,11 @@ RunService.Heartbeat:Connect(function()
     if char then
         local humanoid = char:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            pcall(function() humanoid.WalkSpeed = speedValue end)
-            pcall(function() humanoid.JumpPower = jumpPowerValue end)
+            pcall(function() 
+                humanoid.WalkSpeed = speedValue 
+                humanoid.JumpPower = jumpPowerValue
+                humanoid.UseJumpPower = true
+            end)
         end
         if noclipEnabled then
             for _, part in ipairs(char:GetDescendants()) do
